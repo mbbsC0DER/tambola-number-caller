@@ -2,7 +2,8 @@ package com.pratham.tambola.domain
 
 const val SESSION_TTL_MS = 15L * 24 * 60 * 60 * 1000
 const val DEFAULT_GAP_MS = 2_000L
-const val REPEAT_GAP_MS = 2_000L
+const val INITIAL_CALL_DELAY_MS = 1_000L
+const val REPEAT_GAP_MS = 600L
 
 fun validGap(ms: Long) = ms in 1_000L..6_000L && ms % 500L == 0L
 

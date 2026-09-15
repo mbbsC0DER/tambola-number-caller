@@ -12,6 +12,6 @@ object NumberAnnouncementFormatter {
 
     fun live(number: Int): String {
         val whole = whole(number)
-        return if (number < 10) whole else "${small[number / 10]} ${small[number % 10]}, $whole"
+        return if (number < 10) "single number $whole" else "${small[number / 10]} ${small[number % 10]}, $whole"
     }
 }

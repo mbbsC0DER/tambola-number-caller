@@ -8,7 +8,11 @@ class NumberAnnouncementFormatterTest {
         assertEquals("one three, thirteen", NumberAnnouncementFormatter.live(13))
         assertEquals("one zero, ten", NumberAnnouncementFormatter.live(10))
         assertEquals("nine zero, ninety", NumberAnnouncementFormatter.live(90))
-        assertEquals("seven", NumberAnnouncementFormatter.live(7))
+        assertEquals("single number seven", NumberAnnouncementFormatter.live(7))
+        (1..9).forEach { number ->
+            assertEquals("single number ${NumberAnnouncementFormatter.whole(number)}", NumberAnnouncementFormatter.live(number))
+            assertFalse(NumberAnnouncementFormatter.whole(number).contains("single number"))
+        }
         assertEquals("twenty-four", NumberAnnouncementFormatter.whole(24))
         assertEquals("thirteen", NumberAnnouncementFormatter.whole(13))
         (1..90).forEach { number ->
@@ -20,6 +24,6 @@ class NumberAnnouncementFormatterTest {
         val valid = (0L..7_000L).filter(::validGap)
         assertEquals((1_000L..6_000L step 500L).toList(), valid)
         assertEquals(2_000L, DEFAULT_GAP_MS)
-        assertEquals(2_000L, REPEAT_GAP_MS)
+        assertEquals(600L, REPEAT_GAP_MS)
     }
 }

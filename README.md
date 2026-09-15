@@ -31,9 +31,11 @@ Release compilation: `./gradlew :app:assembleRelease`. Release signing keys are 
 ## Game rules
 
 - A new game shuffles 1–90 once, saving the complete order before playback.
-- Live speech uses “one three, thirteen”; single digits are spoken once.
+- Once the voice is ready, each new session waits **1 second** before drawing and announcing its first number. This startup wait can be paused or cancelled.
+- Live speech uses “one three, thirteen”; single digits use “single number one”.
 - Live gaps default to **2 seconds**, adjustable from **1 to 6 seconds in 0.5-second steps**. The gap follows speech completion. Changes affect the next gap, not the gap already underway.
-- Called/remaining readouts are sorted ascending, say whole numbers only, and always use a **2-second gap**. They never alter the draw order or called status.
+- Called/remaining readouts are sorted ascending, say whole numbers only, and always use a **0.6-second gap**. They never alter the draw order or called status.
+- Tap the previous-number circle to open a dark, scrollable drawer from that side. Prior live numbers appear oldest first, excluding the current live number. Close it with Back, the drawer’s arrow, a swipe, or a tap outside; playback is unaffected.
 - Readouts pause the game and leave it paused when stopped or finished.
 - There is no manual draw action. Board cells are informational.
 - Back quits the current screen. Unfinished sessions stay resumable, including manually quit sessions. A new game is always allowed, regardless of existing unfinished sessions.

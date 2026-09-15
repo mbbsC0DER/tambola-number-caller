@@ -82,7 +82,7 @@ class SessionControllerTest {
         val f = Fixture(this)
         f.controller.newSession()
         repeat(20) { f.controller.play() }
-        advanceTimeBy(101); runCurrent()
+        advanceTimeBy(1_101); runCurrent()
         assertEquals(listOf("one three, thirteen"), f.speech.spoken.map { it.first })
         assertEquals(1, f.controller.state.value.session!!.drawnCount)
     }
@@ -90,7 +90,7 @@ class SessionControllerTest {
     @Test fun `interrupted speech is repeated without drawing twice`() = runTest {
         val f = Fixture(this)
         f.controller.newSession(); f.controller.play()
-        advanceTimeBy(50); runCurrent()
+        advanceTimeBy(1_050); runCurrent()
         f.controller.pause()
         val pending = f.controller.state.value.session!!
         assertTrue(pending.announcementPending)
@@ -100,25 +100,25 @@ class SessionControllerTest {
         assertEquals(listOf("one three, thirteen", "one three, thirteen"), f.speech.spoken.map { it.first })
     }
 
-    @Test fun `read remaining uses whole words and fixed two second gaps without drawing`() = runTest {
+    @Test fun `read remaining uses whole words and fixed 600ms gaps without drawing`() = runTest {
         val f = Fixture(this)
         f.controller.newSession(); f.controller.changeGap(6_000)
         val before = f.controller.state.value.session
         f.controller.repeat(false)
-        advanceTimeBy(4_201); runCurrent(); f.controller.pause()
+        advanceTimeBy(1_401); runCurrent(); f.controller.pause()
         assertEquals(before, f.controller.state.value.session)
         assertEquals(listOf("one", "two", "three"), f.speech.spoken.map { it.first })
-        assertEquals(listOf(0L, 2_100L, 4_200L), f.speech.spoken.map { it.second })
+        assertEquals(listOf(0L, 700L, 1_400L), f.speech.spoken.map { it.second })
         assertEquals(PlaybackMode.PAUSED, f.controller.state.value.mode)
     }
 
     @Test fun `repeat called sorts its snapshot and stays paused after finishing`() = runTest {
         val f = Fixture(this)
         f.controller.newSession(); f.controller.play()
-        advanceTimeBy(4_301); runCurrent(); f.controller.pause()
+        advanceTimeBy(5_301); runCurrent(); f.controller.pause()
         val before = f.controller.state.value.session
         f.controller.repeat(true)
-        advanceTimeBy(4_301); runCurrent()
+        advanceTimeBy(1_501); runCurrent()
         assertEquals(listOf("seven", "ten", "thirteen"), f.speech.spoken.takeLast(3).map { it.first })
         assertEquals(before, f.controller.state.value.session)
         assertEquals(PlaybackMode.PAUSED, f.controller.state.value.mode)
@@ -127,15 +127,15 @@ class SessionControllerTest {
     @Test fun `speed changes only the next gap`() = runTest {
         val f = Fixture(this)
         f.controller.newSession(); f.controller.play()
-        advanceTimeBy(200); runCurrent()
+        advanceTimeBy(1_200); runCurrent()
         f.controller.changeGap(6_000)
         advanceTimeBy(8_001); runCurrent()
-        assertEquals(listOf(0L, 2_100L, 8_200L), f.speech.spoken.map { it.second })
+        assertEquals(listOf(1_000L, 3_100L, 9_200L), f.speech.spoken.map { it.second })
     }
 
     @Test fun `new games coexist with quit games and retain pending recovery`() = runTest {
         val f = Fixture(this)
-        f.controller.newSession(); f.controller.play(); advanceTimeBy(50); runCurrent()
+        f.controller.newSession(); f.controller.play(); advanceTimeBy(1_050); runCurrent()
         val firstId = f.controller.state.value.session!!.id
         f.controller.newSession()
         assertEquals(2, f.repository.sessions.size)
@@ -149,7 +149,7 @@ class SessionControllerTest {
 
     @Test fun `backgrounding stops speech and never resumes automatically`() = runTest {
         val f = Fixture(this)
-        f.controller.newSession(); f.controller.play(); advanceTimeBy(50); runCurrent()
+        f.controller.newSession(); f.controller.play(); advanceTimeBy(1_050); runCurrent()
         f.controller.setForeground(false); runCurrent()
         advanceTimeBy(60_000); runCurrent()
         assertEquals(1, f.speech.spoken.size)
@@ -161,7 +161,7 @@ class SessionControllerTest {
     @Test fun `speech errors preserve a pending number for retry`() = runTest {
         val f = Fixture(this)
         f.speech.fail = true
-        f.controller.newSession(); f.controller.play(); runCurrent()
+        f.controller.newSession(); f.controller.play(); advanceTimeBy(1_000); runCurrent()
         assertEquals(PlaybackMode.ERROR, f.controller.state.value.mode)
         assertTrue(f.controller.state.value.session!!.announcementPending)
         f.speech.fail = false
@@ -173,7 +173,7 @@ class SessionControllerTest {
     @Test fun `failed persistence never announces or advances a number`() = runTest {
         val f = Fixture(this)
         f.repository.drawFailure = true
-        f.controller.newSession(); f.controller.play(); runCurrent()
+        f.controller.newSession(); f.controller.play(); advanceTimeBy(1_000); runCurrent()
         assertEquals(PlaybackMode.ERROR, f.controller.state.value.mode)
         assertEquals(0, f.controller.state.value.session!!.drawnCount)
         assertTrue(f.speech.spoken.isEmpty())
@@ -183,7 +183,7 @@ class SessionControllerTest {
         val f = Fixture(this)
         val commit = CompletableDeferred<Unit>()
         f.repository.drawGate = commit
-        f.controller.newSession(); f.controller.play(); runCurrent()
+        f.controller.newSession(); f.controller.play(); advanceTimeBy(1_000); runCurrent()
         val pause = backgroundScope.launch { f.controller.pause() }
         runCurrent()
         commit.complete(Unit)
@@ -197,12 +197,28 @@ class SessionControllerTest {
     @Test fun `switching readout modes stops the old snapshot immediately`() = runTest {
         val f = Fixture(this)
         f.controller.newSession(); f.controller.play()
-        advanceTimeBy(101); runCurrent(); f.controller.pause()
+        advanceTimeBy(1_101); runCurrent(); f.controller.pause()
         val before = f.controller.state.value.session
         f.controller.repeat(false); advanceTimeBy(50); runCurrent()
         f.controller.repeat(true); advanceTimeBy(101); runCurrent()
         assertEquals("thirteen", f.speech.spoken.last().first)
         assertEquals(before, f.controller.state.value.session)
         assertEquals(PlaybackMode.PAUSED, f.controller.state.value.mode)
+    }
+
+    @Test fun `each new session waits one second before its first announcement`() = runTest {
+        val f = Fixture(this)
+        repeat(2) {
+            f.controller.newSession()
+            val startedAt = testScheduler.currentTime
+            val previousCalls = f.speech.spoken.size
+            f.controller.play()
+            advanceTimeBy(999); runCurrent()
+            assertEquals(previousCalls, f.speech.spoken.size)
+            assertEquals(0, f.controller.state.value.session!!.drawnCount)
+            advanceTimeBy(1); runCurrent()
+            assertEquals(startedAt + 1_000L, f.speech.spoken.last().second)
+            assertEquals(previousCalls + 1, f.speech.spoken.size)
+        }
     }
 }

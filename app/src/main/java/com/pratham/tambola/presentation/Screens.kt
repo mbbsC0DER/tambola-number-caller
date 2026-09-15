@@ -16,7 +16,6 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -33,6 +32,7 @@ import java.time.format.DateTimeFormatter
 import java.util.Locale
 import kotlin.math.ceil
 import kotlin.math.roundToLong
+import kotlinx.coroutines.launch
 
 private fun numberLabel(number: Int?) = number?.toString()?.padStart(2, '0') ?: "—"
 private fun gapLabel(ms: Long) = if (ms % 1_000 == 0L) "${ms / 1_000}s" else "${ms / 1_000}.${ms % 1_000 / 100}s"
@@ -51,18 +51,9 @@ fun HomeScreen(sessions: List<Session>, now: Long, busy: Boolean, onNew: () -> U
             }
         }
         item {
-            Column(Modifier.padding(top = 18.dp, bottom = 8.dp)) {
-                Text("A little luck.\nA lot of fun.", style = MaterialTheme.typography.displaySmall, fontWeight = FontWeight.SemiBold)
-                Spacer(Modifier.height(12.dp))
-                Text("Gather your people. We’ll call the numbers.", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodyLarge)
-            }
-        }
-        item {
             Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)) {
                 Column(Modifier.padding(24.dp), verticalArrangement = Arrangement.spacedBy(18.dp)) {
                     Icon(AppIcons.Volume, null, Modifier.size(32.dp))
-                    Text("Ready when you are", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Medium)
-                    Text("90 numbers. Automatic voice calling.\nYour pace, your game.", style = MaterialTheme.typography.bodyLarge)
                     Button(onClick = onNew, enabled = !busy, modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp)) {
                         Icon(AppIcons.Play, null)
                         Spacer(Modifier.width(8.dp))
@@ -82,8 +73,7 @@ fun HomeScreen(sessions: List<Session>, now: Long, busy: Boolean, onNew: () -> U
             OutlinedCard(Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(24.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Icon(AppIcons.History, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Text("A fresh start", style = MaterialTheme.typography.titleMedium)
-                    Text("Your unfinished sessions will appear here, ready to pick up later.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("No saved sessions", style = MaterialTheme.typography.titleMedium)
                 }
             }
         }
@@ -112,6 +102,8 @@ fun CallerScreen(state: CallerState, busy: Boolean, onBack: () -> Unit, onToggle
     val session = state.session ?: return
     var menu by remember { mutableStateOf(false) }
     var speedSheet by rememberSaveable { mutableStateOf(false) }
+    val historyDrawer = rememberDrawerState(DrawerValue.Closed)
+    val drawerScope = rememberCoroutineScope()
     val status = when (state.mode) {
         PlaybackMode.PREPARING -> "Getting the voice ready…"
         PlaybackMode.CALLING -> "Calling numbers"
@@ -119,8 +111,9 @@ fun CallerScreen(state: CallerState, busy: Boolean, onBack: () -> Unit, onToggle
         PlaybackMode.READING_REMAINING -> "Remaining numbers · ${state.readoutIndex} of ${state.readoutTotal}"
         PlaybackMode.ALL_CALLED -> "All 90 numbers called"
         PlaybackMode.ERROR -> "Playback paused"
-        else -> if (session.drawnCount == 0) "Ready to begin" else "Paused · take your time"
+        else -> if (session.drawnCount == 0) "Ready" else "Paused"
     }
+    PreviousNumbersDrawer(numbers = session.called.dropLast(1), drawerState = historyDrawer) {
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp).widthIn(max = 640.dp), horizontalAlignment = Alignment.CenterHorizontally) {
         Row(Modifier.fillMaxWidth().padding(vertical = 12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
             FilledTonalIconButton(onClick = onBack, enabled = !busy, modifier = Modifier.size(48.dp)) { Icon(AppIcons.Back, "Quit session") }
@@ -129,20 +122,21 @@ fun CallerScreen(state: CallerState, busy: Boolean, onBack: () -> Unit, onToggle
                 leadingIcon = { Icon(AppIcons.Speed, null, Modifier.size(18.dp)) },
                 modifier = Modifier.semantics { contentDescription = "Pause between numbers: ${gapLabel(session.gapMs)}" })
             Box {
-                FilledTonalIconButton(onClick = { menu = true }, modifier = Modifier.size(48.dp), enabled = !busy) { Icon(AppIcons.Volume, "Number readouts") }
+                FilledTonalIconButton(onClick = { menu = true }, modifier = Modifier.size(48.dp), enabled = !busy) { Icon(AppIcons.Repeat, "Number readouts") }
                 DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
                     DropdownMenuItem(text = { Text("Read remaining numbers") }, enabled = session.remaining.isNotEmpty(), onClick = { menu = false; onRepeat(false) })
                     DropdownMenuItem(text = { Text("Repeat called numbers") }, enabled = session.called.isNotEmpty(), onClick = { menu = false; onRepeat(true) })
                 }
             }
         }
-        Text("LET THE NUMBERS ROLL", Modifier.padding(top = 18.dp), style = MaterialTheme.typography.labelSmall, letterSpacing = 2.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Row(Modifier.fillMaxWidth().padding(vertical = 24.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
-                Surface(shape = CircleShape, color = MaterialTheme.colorScheme.surfaceContainerHigh, modifier = Modifier.size(64.dp)) {
+                Surface(onClick = { drawerScope.launch { historyDrawer.open() } },
+                    enabled = session.previous != null && !busy,
+                    shape = CircleShape, color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                    modifier = Modifier.size(64.dp).semantics { contentDescription = "Show previous numbers" }) {
                     Box(contentAlignment = Alignment.Center) { Text(numberLabel(session.previous), style = MaterialTheme.typography.headlineSmall) }
                 }
-                Text("Previous", Modifier.padding(top = 8.dp), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             Column(Modifier.weight(1.8f), horizontalAlignment = Alignment.CenterHorizontally) {
                 Surface(shape = RoundedCornerShape(28.dp), color = MaterialTheme.colorScheme.primaryContainer, modifier = Modifier.fillMaxWidth().heightIn(min = 148.dp)) {
@@ -153,7 +147,6 @@ fun CallerScreen(state: CallerState, busy: Boolean, onBack: () -> Unit, onToggle
                         }
                     }
                 }
-                Text(if (state.isReading) "Reading" else "Current number", Modifier.padding(top = 8.dp), style = MaterialTheme.typography.labelSmall)
             }
             Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
                 val enabled = !busy && (!session.complete || state.isPlaying)
@@ -161,14 +154,12 @@ fun CallerScreen(state: CallerState, busy: Boolean, onBack: () -> Unit, onToggle
                     Icon(when { state.isReading -> AppIcons.Stop; state.isPlaying -> AppIcons.Pause; else -> AppIcons.Play },
                         if (state.isReading) "Stop readout" else if (state.isPlaying) "Pause" else "Play", Modifier.size(32.dp))
                 }
-                Text(if (state.isReading) "Stop" else if (state.isPlaying) "Pause" else "Play", Modifier.padding(top = 8.dp), style = MaterialTheme.typography.labelSmall)
             }
         }
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Box(Modifier.size(7.dp).clip(CircleShape).background(if (state.isPlaying) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline))
             Text(status, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
-        if (state.isReading) Text("Repeat interval: 2 seconds", Modifier.padding(top = 4.dp), style = MaterialTheme.typography.labelSmall)
         state.error?.let { error ->
             Card(Modifier.fillMaxWidth().padding(top = 16.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer)) {
                 Column(Modifier.padding(16.dp)) {
@@ -177,29 +168,24 @@ fun CallerScreen(state: CallerState, busy: Boolean, onBack: () -> Unit, onToggle
                 }
             }
         }
-        Row(Modifier.fillMaxWidth().padding(top = 28.dp, bottom = 12.dp), horizontalArrangement = Arrangement.SpaceBetween) {
-            Text("THE NUMBER BOARD", style = MaterialTheme.typography.labelSmall, letterSpacing = 1.sp)
+        Row(Modifier.fillMaxWidth().padding(top = 28.dp, bottom = 12.dp), horizontalArrangement = Arrangement.End) {
             Text("${session.drawnCount} called · ${session.remaining.size} left", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         NumberBoard(session.called.toSet(), session.current)
-        Row(Modifier.padding(top = 16.dp, bottom = 24.dp), horizontalArrangement = Arrangement.spacedBy(20.dp)) {
-            Legend("Called", MaterialTheme.colorScheme.primaryContainer)
-            Legend("Current", MaterialTheme.colorScheme.primary)
-        }
-        if (session.complete) Text("Stay as long as you like. Repeat the called numbers, or use Back to leave.", Modifier.padding(bottom = 24.dp), textAlign = TextAlign.Center, style = MaterialTheme.typography.bodySmall)
+        Spacer(Modifier.height(24.dp))
+    }
     }
     if (speedSheet) {
         var selection by remember { mutableFloatStateOf(session.gapMs.toFloat()) }
         ModalBottomSheet(onDismissRequest = { speedSheet = false }) {
             Column(Modifier.padding(start = 24.dp, end = 24.dp, bottom = 32.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                Text("Your game, your pace", style = MaterialTheme.typography.headlineSmall)
-                Text("Pause between numbers", style = MaterialTheme.typography.bodyLarge)
+                Text("Pause between numbers", style = MaterialTheme.typography.headlineSmall)
                 Text(gapLabel(selection.roundToLong()), style = MaterialTheme.typography.displaySmall)
                 Slider(value = selection, onValueChange = { selection = (it / 500).roundToLong() * 500f },
                     valueRange = 1_000f..6_000f, steps = 9, enabled = !state.isReading && !session.complete,
                     modifier = Modifier.semantics { contentDescription = "Pause between numbers" })
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) { Text("1 second"); Text("6 seconds") }
-                Text("The pause starts after the full announcement. Readouts always use 2 seconds.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("After each announcement. Readouts use a fixed 0.6s pause.", color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Button(onClick = { onGap(selection.roundToLong()); speedSheet = false }, enabled = !state.isReading && !session.complete, modifier = Modifier.fillMaxWidth()) { Text("Set pace") }
             }
         }
@@ -227,14 +213,6 @@ fun NumberBoard(called: Set<Int>, current: Int?) {
                 }
             }
         }
-    }
-}
-
-@Composable
-private fun Legend(label: String, color: androidx.compose.ui.graphics.Color) {
-    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-        Box(Modifier.size(8.dp).clip(CircleShape).background(color))
-        Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 

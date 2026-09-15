@@ -60,8 +60,10 @@ class SessionController(
                 speech.prepare()
                 currentCoroutineContext().ensureActive()
                 mutableState.value = state.value.copy(mode = PlaybackMode.CALLING)
-                // New games and interrupted utterances start immediately; ordinary resumes wait.
-                if (session.drawnCount > 0 && !session.announcementPending) delay(session.gapMs)
+                // Give the host a moment before the first draw; interrupted speech retries immediately.
+                val readySession = requireNotNull(state.value.session)
+                if (readySession.drawnCount == 0) delay(INITIAL_CALL_DELAY_MS)
+                else if (!readySession.announcementPending) delay(readySession.gapMs)
                 while (true) {
                     currentCoroutineContext().ensureActive()
                     var current = state.value.session ?: return@runPlayback

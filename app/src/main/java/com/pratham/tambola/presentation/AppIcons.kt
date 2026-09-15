@@ -28,6 +28,12 @@ object AppIcons {
     val Stop = filled("Stop") { moveTo(6f, 6f); lineTo(18f, 6f); lineTo(18f, 18f); lineTo(6f, 18f); close() }
     val Back = outline("Back", true) { moveTo(19f, 12f); lineTo(5f, 12f); moveTo(11f, 6f); lineTo(5f, 12f); lineTo(11f, 18f) }
     val Chevron = outline("Chevron", true) { moveTo(9f, 6f); lineTo(15f, 12f); lineTo(9f, 18f) }
+    val Repeat = outline("Repeat") {
+        moveTo(4f, 11f); lineTo(4f, 8f); curveTo(4f, 6f, 5f, 5f, 7f, 5f); lineTo(20f, 5f)
+        moveTo(17f, 2f); lineTo(20f, 5f); lineTo(17f, 8f)
+        moveTo(20f, 13f); lineTo(20f, 16f); curveTo(20f, 18f, 19f, 19f, 17f, 19f); lineTo(4f, 19f)
+        moveTo(7f, 16f); lineTo(4f, 19f); lineTo(7f, 22f)
+    }
     val Volume = outline("Volume", true) {
         moveTo(3f, 9f); lineTo(7f, 9f); lineTo(12f, 5f); lineTo(12f, 19f); lineTo(7f, 15f); lineTo(3f, 15f); close()
         moveTo(16f, 8f); curveTo(19f, 10f, 19f, 14f, 16f, 16f)
